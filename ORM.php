@@ -53,7 +53,8 @@ require_once("DBC.php");
 		public $table;
 		public $keyName;
 		public $keyValue;
-		
+		public $customClause;
+		public $autoClean;
 		
 		public function __construct(&$instance, $table = "", $keyValue = "", $keyName = "") {
 			$this->instance = $instance;
@@ -78,7 +79,10 @@ require_once("DBC.php");
 			global $db; // from dbc.php
 			$this->db = &$db;
 			
+			$this->collection = array();
 			$this->index = 0;
+			$this->customClause = "";
+			$this->autoClean = true;
 		}
 		
 		// Hacky method to get the ObjectVars for the subclassed object
@@ -100,7 +104,7 @@ require_once("DBC.php");
 			return $vars;
 		}
 		
-		// appends an 's' to the instance's name
+		// appends an 's' to the instance's class name
 		private function genTable()
 		{
 			return strtolower( $this->className.'s' );
@@ -120,11 +124,16 @@ require_once("DBC.php");
 			return $values[0];
 		}
 		
+		private function getInstancePropertyNames()
+		{
+			return array_keys($this->getObjectVars());
+		}
+		
 		//  $list = true 
 		//		returns the column names in a comma separated list
 		// 	$list = false 
 		//		returns an array of column names
-		private function genColumns($list = true)
+		private function genKeys($list = true)
 		{	
 			if ($list)
 			{
@@ -136,7 +145,7 @@ require_once("DBC.php");
 			}
 			else
 			{
-				return array_keys($this->getObjectVars());
+				return $this->getInstancePropertyNames();
 			}
 		}
 		
@@ -175,59 +184,95 @@ require_once("DBC.php");
 			$this->instance->$property = $value;
 		}
 		
+		private function getInstanceData($property, $clean = true)
+		{
+			// not sure of the overhead on the escaping with 
+			if ($this->autoClean)
+			{
+				$cleaned = $this->db->connect()->escape( $this->instance->$property );
+				$this->db->disconnect();
+				return $cleaned;
+			}
+			else
+				return $this->instance->$property;
+		}
+		
 		// Queries from table where keyName = keyValue
 		public function populateQuery()
 		{
-			return "SELECT * ".
-					"FROM ".$this->table." ".
-					"WHERE ".$this->keyName."='".$this->keyValue."'";
+			$query = "SELECT * ".
+						"FROM ".$this->table." WHERE ";
+						
+			if (!isset($this->customClause) || empty($this->customClause))
+				return $query.$this->keyName."='".$this->keyValue."'";
+			else
+				return $query.$this->customClause;
 		}
 		
 		// Populates subclassed variables from DB using where $this->key = 
 		public function populate()
 		{
-			if (empty($this->keyName))
-				$this->keyName = $this->genKeyName();
-			if (empty($this->keyValue))
-				$this->keyValue = $this->genKeyValue();
-			
-			// sanity check but it is possible that $this->keyValue may be empty
-			if (empty($this->keyName) || empty($this->keyValue))
-				throw new Exception("ORM keyName and keyValue must be set to, or the first public variable must be set to call populate()");
-				
-			$data = $this->db
+			if (empty ($this->customClause))
+			{
+				if (empty($this->keyName))
+					$this->keyName = $this->genKeyName();
+				if (empty($this->keyValue))
+					$this->keyValue = $this->genKeyValue();
+					
+				// sanity check but it is possible that $this->keyValue may be empty
+				if (empty($this->keyName) || empty($this->keyValue))
+					throw new Exception("ORM keyName and keyValue must be set to, or the first public variable must be set to call populate()");
+			}
+			// else don't worry about the query key/value
+							
+			$rows = $this->db
 			->connect()
 			->query($this->populateQuery(), false)
-			->getRowAssoc();
+			->getRowsAssoc();
 			
 			$this->db->disconnect();
 			
-			foreach ($this->getObjectVars() as $name => $value) {
-				$this->setInstanceData($name, $data[$name]);
+			$properties = $this->getInstancePropertyNames();
+			
+			// set current instance data to first 
+			foreach ($properties as $property) {
+				$this->setInstanceData($property, $rows[0][$property]);
+			}
+			
+			// clear current contents of collection
+			$this->collection = array();
+			
+			// populate the collection with new instances of the class
+			foreach($rows as $row) {
+				$instance = new $this->className();
+				foreach ($properties as $property) {
+					$instance->$property = $row[$property];
+				}
+				$this->collection[] = $instance;
 			}
 		}
 		
 		public function insertQuery()
 		{
-			return "INSERT INTO ".$this->table." (".$this->genColumns().") ".
+			return "INSERT INTO ".$this->table." (".$this->genKeys().") ".
 					"VALUES (".$this->genValues().")";
 		}
 		
 		// Insert subclassed object into DB
 		public function insert()
 		{
-			$columns = array();
-			$values = array();
-			
 			$this->db
 			->connect()
 			->query($this->insertQuery(), false);
 			
 			$insertID = $this->db->lastID();
-			
 			$this->db->disconnect();
 			
-			
+			// update key for auto increment key columns
+			if ($insertID != $this->getInstanceData($this->keyName)) {
+				$this->keyValue = $insertID;
+				$this->setInstanceData($this->keyName, $insertID);
+			}
 		}
 		
 		public function updateQuery()
@@ -329,5 +374,33 @@ require_once("DBC.php");
 	
 	$user->username = "CTS_AE";
 	$user->update();
+	
+	class Post extends ORM
+	{
+		public $id;
+		public $title;
+		public $body;
+		public $created;
+		public $modified;
+		
+		public function __construct()
+		{
+			parent::__construct($this);
+		}
+	}
+	
+	$post = new Post();
+	$post->customClause = "id<'10'";
+	$post->populate();
+	
+	foreach($post as $p)
+	{
+		echo "Title: ".$p->title."<br>";
+		echo "Body: ".$p->body."<br><br>";
+	}
+	
+	echo "Current...<br>";
+	echo "Title: ".$post->title."<br>";
+	echo "Body: ".$post->body."<br><br>";
 	
 ?>
