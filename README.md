@@ -2,9 +2,10 @@ LHPHPLib
 ========
 
 Logic Happens PHP Library / Framework
+
 http://logichappens.com/
 
-Currently a work in progress, as well as my frist Git and GitHub try.
+Currently a work in progress, as well as my frist Git and GitHub project.
 
 Classes
 -------------------------
