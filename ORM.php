@@ -42,46 +42,53 @@ require_once("DBC.php");
 		// 	Ability to generate a DB table, would need to make enums
 		// 	Handle an array of objects
 		// 	Only update changed vars for gen columns/values
+		// 	Could get crazy and read out the DB meta data such as actual table keys, and structure, this could be a whole class of it's own
 		// TODO 
-		// 	clean up subclass property data
+		// 	added clause handling, clause("key", "operator", "value"), able to handle an array as well
+		// 	make public properties private and add proper mutators & accessors, nearly there already
+		//	cleanup - private and public ordering
+		//	look into get index and multi column how it's handling/working currently
+		// 	*** Custom exceptions - keyValueNotSet
+		// IDEAS
+		//	subclass or prefix helper methods such as getClause, and querry stuff
 		private $instance;
 		private $className;
 		private $db;
 		private $collection;
 		private $index;
+		private $keyName;
+		private $keyValue;
+		private $customClause;
 		
-		public $table;
-		public $keyName;
-		public $keyValue;
-		public $customClause;
+		public $tableName;
 		public $autoClean;
 		
-		public function __construct(&$instance, $table = "", $keyValue = "", $keyName = "") {
+		public function __construct(&$instance, $tableName = "", $keyValue = "", $keyName = "") {
 			$this->instance = $instance;
 			
 			$this->className = get_class($this->instance);
 			
-			if(!empty($table))
-				$this->table = $table;
+			if(!empty($tableName))
+				$this->tableName = $tableName;
 			else
-				$this->table = $this->genTable();
-			
-			if(!empty($keyValue))
-				$this->keyValue = $keyValue;
-			else
-				$this->keyValue = $this->genKeyValue();
+				$this->tableName = $this->genTableName();
 			
 			if(!empty($keyName))
-				$this->keyName = $keyName;
+				$this->setKeyName($keyName);
 			else
-				$this->keyName = $this->genKeyName();
+				$this->setKeyName($this->genKeyName());		
+					
+			if(!empty($keyValue))
+				$this->setKeyValue($keyValue);
+			else
+				$this->setKeyValue($this->genKeyValue());
 			
 			global $db; // from dbc.php
 			$this->db = &$db;
 			
 			$this->collection = array();
 			$this->index = 0;
-			$this->customClause = "";
+			$this->setClause("");
 			$this->autoClean = true;
 		}
 		
@@ -105,7 +112,7 @@ require_once("DBC.php");
 		}
 		
 		// appends an 's' to the instance's class name
-		private function genTable()
+		private function genTableName()
 		{
 			return strtolower( $this->className.'s' );
 		}
@@ -114,6 +121,8 @@ require_once("DBC.php");
 		private function genKeyName()
 		{
 			$keys = array_keys($this->getObjectVars());
+			if (empty($keys[0]))
+				throw new Exception("ORM keyName was unable to generate, either use setKeyName or there was an error obtaining the name of the first public  variable in the instance of the class '".$this->className."' that extends ORM");	
 			return $keys[0];
 		}
 		
@@ -121,7 +130,35 @@ require_once("DBC.php");
 		private function genKeyValue()
 		{
 			$values = array_values($this->getObjectVars());
+			if (empty($values[0]))
+				throw new Exception("ORM keyName was unable to generate, either use setKeyValue or set the first public variable in the instance of the class '".$this->className."' that extends ORM");	
 			return $values[0];
+		}
+		
+		public function getKeyName()
+		{
+			if (empty($this->keyName))
+				$this->keyName = $this->genKeyName();
+			
+			return $this->keyName;	
+		}
+		
+		public function getKeyValue()
+		{
+			if (empty($this->keyValue))
+				$this->keyValue = $this->genKeyValue();
+				
+			return $this->keyValue;
+		}
+		
+		public function setKeyName($newKeyName)
+		{
+			$this->keyName = $newKeyName;
+		}
+		
+		public function setKeyValue($newKeyValue)
+		{
+			$this->keyValue = $newKeyValue;
 		}
 		
 		private function getInstancePropertyNames()
@@ -197,34 +234,30 @@ require_once("DBC.php");
 				return $this->instance->$property;
 		}
 		
+		public function getClause()
+		{
+			if (!isset($this->customClause) || empty($this->customClause))
+				return $this->getKeyName()."='".$this->getKeyValue()."'";
+			else
+				return $this->customClause;
+		}
+		
+		public function setClause($newClause)
+		{
+			$this->customClause = $newClause;
+		}
+		
 		// Queries from table where keyName = keyValue
 		public function populateQuery()
 		{
-			$query = "SELECT * ".
-						"FROM ".$this->table." WHERE ";
-						
-			if (!isset($this->customClause) || empty($this->customClause))
-				return $query.$this->keyName."='".$this->keyValue."'";
-			else
-				return $query.$this->customClause;
+			return "SELECT * ".
+					"FROM ".$this->tableName.
+					" WHERE ".$this->getClause();
 		}
 		
 		// Populates subclassed variables from DB using where $this->key = 
 		public function populate()
-		{
-			if (empty ($this->customClause))
-			{
-				if (empty($this->keyName))
-					$this->keyName = $this->genKeyName();
-				if (empty($this->keyValue))
-					$this->keyValue = $this->genKeyValue();
-					
-				// sanity check but it is possible that $this->keyValue may be empty
-				if (empty($this->keyName) || empty($this->keyValue))
-					throw new Exception("ORM keyName and keyValue must be set to, or the first public variable must be set to call populate()");
-			}
-			// else don't worry about the query key/value
-							
+		{			
 			$rows = $this->db
 			->connect()
 			->query($this->populateQuery(), false)
@@ -254,7 +287,7 @@ require_once("DBC.php");
 		
 		public function insertQuery()
 		{
-			return "INSERT INTO ".$this->table." (".$this->genKeys().") ".
+			return "INSERT INTO ".$this->tableName." (".$this->genKeys().") ".
 					"VALUES (".$this->genValues().")";
 		}
 		
@@ -269,17 +302,17 @@ require_once("DBC.php");
 			$this->db->disconnect();
 			
 			// update key for auto increment key columns
-			if ($insertID != $this->getInstanceData($this->keyName)) {
-				$this->keyValue = $insertID;
-				$this->setInstanceData($this->keyName, $insertID);
+			if ($insertID != $this->getInstanceData($this->getKeyName())) {
+				$this->setKeyValue($insertID);
+				$this->setInstanceData($this->getKeyName(), $insertID);
 			}
 		}
 		
 		public function updateQuery()
 		{
-			return "UPDATE ".$this->table." ".
+			return "UPDATE ".$this->tableName." ".
 					"SET ".$this->genKeyValueList()." ".
-					"WHERE ".$this->keyName."='".$this->keyValue."'";
+					$this->getClause();
 		}
 		
 		// Updates subclassed variables into the database
@@ -293,19 +326,27 @@ require_once("DBC.php");
 		
 		public function deleteQuery()
 		{
-			return "DELETE FROM ".$this->table." ".
-					"WHERE ".$this->keyName."='".$this->keyValue."'";
+			return "DELETE FROM ".$this->tableName." ".
+					$this->getClause();
 		}
 		
 		// Removes object from the database
 		public function delete()
-		{
-			$this->updateObjectVars();
-			
+		{	
 			$this->db
 			->connect()
 			->query($this->deleteQuery(), false)
 			->disconnect();
+		}
+		
+		// Checks if the row exists in the DB
+		public function exists()
+		{
+			return 
+			$this->db
+			->connect()
+			->query($this->populateQuery(), false)
+			->getRowCount() > 0;
 		}
 		
 		// <Iterator> 
@@ -370,6 +411,9 @@ require_once("DBC.php");
 	$user = new User();
 	
 	$user->id = 1;
+	
+	echo "Exists? ".$user->exists()."<br>";
+	
 	$user->populate();
 	
 	$user->username = "CTS_AE";
@@ -390,7 +434,7 @@ require_once("DBC.php");
 	}
 	
 	$post = new Post();
-	$post->customClause = "id<'10'";
+	$post->setClause("id<'10'");
 	$post->populate();
 	
 	foreach($post as $p)
