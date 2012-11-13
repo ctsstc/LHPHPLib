@@ -49,7 +49,6 @@ require_once("DBC.php");
 		// 	make public properties private and add proper mutators & accessors, nearly there already
 		//	cleanup - private and public ordering
 		//	look into get index and multi column how it's handling/working currently
-		// 	*** Custom exceptions - keyValueNotSet
 		// IDEAS
 		//	subclass or prefix helper methods such as getClause, and querry stuff
 		private $instance;
@@ -311,7 +310,7 @@ require_once("DBC.php");
 		{
 			return "UPDATE ".$this->tableName." ".
 					"SET ".$this->genKeyValueList()." ".
-					$this->getClause();
+					"WHERE ".$this->getClause();
 		}
 		
 		// Updates subclassed variables into the database
@@ -326,7 +325,7 @@ require_once("DBC.php");
 		public function deleteQuery()
 		{
 			return "DELETE FROM ".$this->tableName." ".
-					$this->getClause();
+					"WHERE ".$this->getClause();
 		}
 		
 		// Removes object from the database
@@ -438,6 +437,8 @@ require_once("DBC.php");
 	$newUser->password = "098f6bcd4621d373cade4e832627b4f6";
 	$newUser->insert();
 	echo "NewUser's ID: ".$newUser->id."<br><br>";
+	echo $newUser->deleteQuery()."<br>";
+	$newUser->delete();
 		
 	class Post extends ORM
 	{
