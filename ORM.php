@@ -17,9 +17,10 @@ require_once("DBC.php");
 		by lowercase(ClassName."s") ie: 'User' class would use the 'users' table
 		
 		Parameters:
-			__construct(&$instance, $table = "")
-				&$instance: an instance to the object that is subclassing ORM
+			__construct($table = "", $keyValue = "", $keyName = "")
 				[$table]: optional otherwise will be populated via strtolower( SubClassName.'s' )
+				[$keyValue]: optional otherwise will be generated from subclassed instance's first property
+				[$keyName]: optional otherwise will be generated from subclassed instance's first property value
 		
 		How to use, Example:
 			class User extends ORM { // extend the ORM class
@@ -27,14 +28,39 @@ require_once("DBC.php");
 				public $password;
 				public $email;
 				
-				public function __construct($username) { 
-					// the FPV must be initialized with the object
-					$this->username = $username;
-					// a call to the parent constructor (ORM class) must be made after the FPV is set
-					parent::__construct($this);
-					// now all the public vars will be populated
+				public function __construct() { 
+					// REQUIRED!
+					parent::__construct();
 				}
 			}
+			
+			/// Accessing an existing user
+			$user = new User();
+			$user->id = 1;	
+			$user->populate(); // populates all the public properties of the User class
+			$user->username = "CTS_AE"; // change the user's name
+			$user->update(); // push changes to the database
+			
+			/// Creating a New User
+			$newUser = new User();
+			// set all the data we'll want in the db, you don't have to populate all the properties
+			$newUser->email = "John@Doe.net"; 
+			$newUser->username = "John Doe";
+			$newUser->password = "098f6bcd4621d373cade4e832627b4f6";
+			$newUser->insert(); // insert the data into the database as a new row
+			
+			// The database has an autoincrement on the id column this demonstrates how the current instance's id is automatically updated
+			echo "NewUser's ID: ".$newUser->id."<br><br>";
+			
+			/// Remove an already established user
+			$newUser->delete();
+			
+			/// Remove a user
+			// All we need to do is set the first instance's property which will be used to query where key=value ie: id=1
+			$userDelete = new User();
+			$userDelete->id = 1;
+			$userDelete->delete();
+			
 	*/
 	class ORM implements Iterator
 	{
@@ -51,7 +77,9 @@ require_once("DBC.php");
 		//	look into get index and multi column how it's handling/working currently
 		// IDEAS
 		//	subclass or prefix helper methods such as getClause, and querry stuff
-		private $instance;
+		
+		// used to know where the ORM class starts when obtaining the instance's variables
+		private $uniqueUnusedFirstProperty = "uniqueUnusedFirstProperty";
 		private $className;
 		private $db;
 		private $collection;
@@ -63,10 +91,12 @@ require_once("DBC.php");
 		public $tableName;
 		public $autoClean;
 		
-		public function __construct(&$instance, $tableName = "", $keyValue = "", $keyName = "") {
-			$this->instance = $instance;
+		public function __construct($tableName = "", $keyValue = "", $keyName = "") 
+		{	
+			$this->className = get_class($this);	
 			
-			$this->className = get_class($this->instance);
+			if (!$this->isExtended())
+				throw new ORMMustSubClass();
 			
 			if(!empty($tableName))
 				$this->tableName = $tableName;
@@ -90,18 +120,22 @@ require_once("DBC.php");
 			$this->autoClean = true;
 		}
 		
+		private function isExtended()
+		{
+			return ($this->className != "ORM");
+		}
+		
 		// Hacky method to get the ObjectVars for the subclassed object
 		//	There doesn't seem to be a way to get object vars w/o also obtaining 
 		//	 the parent class' variables. So I stop collecting them once I hit the first variable name 
-		//	 in the parent class which is "instance" so as long as the subclassed object doesn't have 
-		// 	 any vars named "instance" this little hacky method will work.
+		//	 in the parent class which is "uniqueUnusedFirstProperty".
 		public function getObjectVars()
 		{
 			$vars = array();
-			foreach(get_object_vars($this->instance) as $k => $v)
+			foreach(get_object_vars($this) as $k => $v)
 			{
 				// break on ORM class first public var
-				if ($k == "instance")
+				if ($k == $this->uniqueUnusedFirstProperty)
 					break;
 				
 				$vars[$k] = $v;
@@ -216,7 +250,7 @@ require_once("DBC.php");
 		
 		private function setInstanceData($property, $value)
 		{
-			$this->instance->$property = $value;
+			$this->$property = $value;
 		}
 		
 		private function getInstanceData($property, $clean = true)
@@ -224,12 +258,12 @@ require_once("DBC.php");
 			// not sure of the overhead on the escaping with 
 			if ($this->autoClean)
 			{
-				$cleaned = $this->db->connect()->escape( $this->instance->$property );
+				$cleaned = $this->db->connect()->escape( $this->$property );
 				$this->db->disconnect();
 				return $cleaned;
 			}
 			else
-				return $this->instance->$property;
+				return $this->$property;
 		}
 		
 		public function getClause()
@@ -407,6 +441,13 @@ require_once("DBC.php");
 			parent::__construct("ORM keyValue was unable to generate, either use setKeyValue or 
 			set the first public variable in the instance of the class '".$className."' that extends ORM");
 		}
+	}
+	
+	class ORMMustSubClass extends Exception
+	{
+		public function __construct() {
+			parent::__construct("ORM Must be extended to be used.");
+		} 
 	}
 	// </Exceptions>
 	
