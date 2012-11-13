@@ -42,7 +42,8 @@ require_once("DBC.php");
 		// 	Ability to generate a DB table, would need to make enums
 		// 	Handle an array of objects
 		// 	Only update changed vars for gen columns/values
-		// 	Could get crazy and read out the DB meta data such as actual table keys, and structure, this could be a whole class of it's own
+		// 	Could get crazy and read out the DB meta data such as actual table keys, and structure, 
+		//		this could be a whole class of it's own
 		// TODO 
 		// 	added clause handling, clause("key", "operator", "value"), able to handle an array as well
 		// 	make public properties private and add proper mutators & accessors, nearly there already
@@ -80,8 +81,6 @@ require_once("DBC.php");
 					
 			if(!empty($keyValue))
 				$this->setKeyValue($keyValue);
-			else
-				$this->setKeyValue($this->genKeyValue());
 			
 			global $db; // from dbc.php
 			$this->db = &$db;
@@ -122,7 +121,7 @@ require_once("DBC.php");
 		{
 			$keys = array_keys($this->getObjectVars());
 			if (empty($keys[0]))
-				throw new Exception("ORM keyName was unable to generate, either use setKeyName or there was an error obtaining the name of the first public  variable in the instance of the class '".$this->className."' that extends ORM");	
+				throw new ORMUndefinedKeyName($this->className);	
 			return $keys[0];
 		}
 		
@@ -131,7 +130,7 @@ require_once("DBC.php");
 		{
 			$values = array_values($this->getObjectVars());
 			if (empty($values[0]))
-				throw new Exception("ORM keyName was unable to generate, either use setKeyValue or set the first public variable in the instance of the class '".$this->className."' that extends ORM");	
+				throw new ORMUndefinedKeyValue($this->className);	
 			return $values[0];
 		}
 		
@@ -178,7 +177,7 @@ require_once("DBC.php");
 				foreach ($this->getObjectVars() as $name => $value) {
 					$ret .= "$name, ";
 				}
-				$ret = substr($ret, 0, strlen($ret) - 2); // remove last ", "
+				return substr($ret, 0, strlen($ret) - 2); // remove last ", "
 			}
 			else
 			{
@@ -196,9 +195,9 @@ require_once("DBC.php");
 			{
 				$ret = "";
 				foreach ($this->getObjectVars() as $name => $value) {
-					$ret .= "$value, ";
+					$ret .= "'$value', ";
 				}
-				$ret = substr($ret, 0, strlen($ret) - 2); // remove last ", "
+				return substr($ret, 0, strlen($ret) - 2); // remove last ", "
 			}
 			else
 			{
@@ -393,6 +392,25 @@ require_once("DBC.php");
 		}
 	}
 	
+	// <Exceptions>
+	class ORMUndefinedKeyName extends Exception
+	{
+		public function __construct($className) {
+			parent::__construct("ORM keyName was unable to generate, either use setKeyName or 
+			there was an error obtaining the name of the first public variable in the 
+			instance of the class '$className' that extends ORM");
+		}
+	}
+	
+	class ORMUndefinedKeyValue extends Exception
+	{
+		public function __construct($className) {
+			parent::__construct("ORM keyValue was unable to generate, either use setKeyValue or 
+			set the first public variable in the instance of the class '".$className."' that extends ORM");
+		}
+	}
+	// </Exceptions>
+	
 	class User extends ORM
 	{
 		public $id;
@@ -409,16 +427,18 @@ require_once("DBC.php");
 	}
 	
 	$user = new User();
-	
-	$user->id = 1;
-	
-	echo "Exists? ".$user->exists()."<br>";
-	
+	$user->id = 1;	
 	$user->populate();
-	
 	$user->username = "CTS_AE";
 	$user->update();
 	
+	$newUser = new User();
+	$newUser->email = "testing@test.com";
+	$newUser->username = "Testers";
+	$newUser->password = "098f6bcd4621d373cade4e832627b4f6";
+	$newUser->insert();
+	echo "NewUser's ID: ".$newUser->id."<br><br>";
+		
 	class Post extends ORM
 	{
 		public $id;

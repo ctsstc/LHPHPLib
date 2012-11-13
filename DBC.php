@@ -41,9 +41,7 @@ class DBC
 	{
 		if ($clean)
 			$query = $this->Escape($query);
-		
-		echo "query = $query <br>";
-		
+				
 		$this->lastResult = mysqli_query($this->DBC, $query);
 		return $this;
 	}
