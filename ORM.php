@@ -75,6 +75,7 @@ require_once("DBC.php");
 		// 	make public properties private and add proper mutators & accessors, nearly there already
 		//	cleanup - private and public ordering
 		//	look into get index and multi column how it's handling/working currently
+		//	* check if genKeyValue() has obsolete code
 		// IDEAS
 		//	subclass or prefix helper methods such as getClause, and querry stuff
 		
@@ -159,8 +160,14 @@ require_once("DBC.php");
 		}
 		
 		// returns the first public variable's value
+		//	or the corresponding key's value
 		private function genKeyValue()
 		{
+			$keyName = $this->keyName;
+			if (!empty($keyName))
+				return $this->$keyName;
+			
+			// try first property value - maybe obsolete
 			$values = array_values($this->getObjectVars());
 			if (empty($values[0]))
 				throw new ORMUndefinedKeyValue($this->className);	
@@ -266,6 +273,16 @@ require_once("DBC.php");
 				return $this->$property;
 		}
 		
+		public function cleanAll()
+		{
+			$this->db->connect();
+			foreach($this->getObjectVars() as $name=>$value)
+			{
+				$this->setInstanceData($name, $this->db->escape($value));
+			}
+			$this->db->disconnect();
+		}
+		
 		public function getClause()
 		{
 			if (!isset($this->customClause) || empty($this->customClause))
@@ -287,12 +304,40 @@ require_once("DBC.php");
 					" WHERE ".$this->getClause();
 		}
 		
+		// returns the currently set properties in a key = 'value', ... comma separated list
+		private function genQueryProperties()
+		{
+			$ret = "";
+			foreach($this->getObjectVars() as $name=>$value)
+			{
+				if (!isset($this->$name))
+					$ret .= "$name = '".$this->$name."', ";
+			}
+			return substr($ret, 0, strlen($ret) - 2); // remove last ", "
+		}
+		
+		// Creates a query with the WHERE clause as the currently set properties
+		public function queryPropertiesQuery()
+		{
+			return "SELECT * ".
+					"FROM ".$this->tableName.
+					" WHERE ".$this->genQueryProperties();
+		}
+		
 		// Populates subclassed variables from DB using where $this->key = 
-		public function populate()
-		{			
+		//	$useProperties = true - uses all the properties in the clause
+		public function populate($useProperties = false)
+		{
+			$query = "";
+			
+			if ($userProperties)
+				$query = $this->queryPropertiesQuery();
+			else
+				$query = $this->populateQuery();
+				
 			$rows = $this->db
 			->connect()
-			->query($this->populateQuery(), false)
+			->query($query, false)
 			->getRowsAssoc();
 			
 			$this->db->disconnect();
