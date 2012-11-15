@@ -77,8 +77,11 @@ require_once("DBC.php");
 		//	look into get index and multi column how it's handling/working currently
 		//	* check if genKeyValue() has obsolete code
 		// 	? setIndex method?, selectIndex
+		//	? clean keys on getObjectVars() ?
 		// IDEAS
 		//	subclass or prefix helper methods such as getClause, and querry stuff
+		// 	being able to "link on" for two classes, ie: get all user's boards, 
+		//		link on user.id and post.userID would create proper
 		
 		// used to know where the ORM class starts when obtaining the instance's variables
 		private $uniqueUnusedFirstProperty = "uniqueUnusedFirstProperty";
@@ -285,9 +288,10 @@ require_once("DBC.php");
 			}
 		}
 		
+		// Checks if customClause is set, otherwise generates clause using keyName = keyValue
 		public function getClause()
 		{
-			if (!isset($this->customClause) || empty($this->customClause))
+			if (empty($this->customClause))
 				return $this->getKeyName()."='".$this->getKeyValue()."'";
 			else
 				return $this->customClause;
