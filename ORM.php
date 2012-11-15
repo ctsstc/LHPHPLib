@@ -76,6 +76,7 @@ require_once("DBC.php");
 		//	cleanup - private and public ordering
 		//	look into get index and multi column how it's handling/working currently
 		//	* check if genKeyValue() has obsolete code
+		// 	? setIndex method?, selectIndex
 		// IDEAS
 		//	subclass or prefix helper methods such as getClause, and querry stuff
 		
@@ -94,7 +95,14 @@ require_once("DBC.php");
 		
 		public function __construct($tableName = "", $keyValue = "", $keyName = "") 
 		{	
+			global $db; // from dbc.php
+			$this->db = &$db;
+			$this->db->connect(); // make sure we're connected
+			$this->autoClean = true;
 			$this->className = get_class($this);	
+			$this->collection = array();
+			$this->index = 0;
+			$this->setClause("");
 			
 			if (!$this->isExtended())
 				throw new ORMMustSubClass();
@@ -111,14 +119,6 @@ require_once("DBC.php");
 					
 			if(!empty($keyValue))
 				$this->setKeyValue($keyValue);
-			
-			global $db; // from dbc.php
-			$this->db = &$db;
-			
-			$this->collection = array();
-			$this->index = 0;
-			$this->setClause("");
-			$this->autoClean = true;
 		}
 		
 		private function isExtended()
@@ -133,14 +133,19 @@ require_once("DBC.php");
 		public function getObjectVars()
 		{
 			$vars = array();
+			
 			foreach(get_object_vars($this) as $k => $v)
 			{
 				// break on ORM class first public var
 				if ($k == $this->uniqueUnusedFirstProperty)
 					break;
 				
-				$vars[$k] = $v;
+				if ($this->autoClean)
+					$vars[$k] = $this->db->escape($v);
+				else
+					$vars[$k] = $v;
 			}
+			
 			return $vars;
 		}
 		
@@ -265,8 +270,7 @@ require_once("DBC.php");
 			// not sure of the overhead on the escaping with 
 			if ($this->autoClean)
 			{
-				$cleaned = $this->db->connect()->escape( $this->$property );
-				$this->db->disconnect();
+				$cleaned = $this->db->escape( $this->$property );
 				return $cleaned;
 			}
 			else
@@ -275,12 +279,10 @@ require_once("DBC.php");
 		
 		public function cleanAll()
 		{
-			$this->db->connect();
 			foreach($this->getObjectVars() as $name=>$value)
 			{
 				$this->setInstanceData($name, $this->db->escape($value));
 			}
-			$this->db->disconnect();
 		}
 		
 		public function getClause()
@@ -336,11 +338,9 @@ require_once("DBC.php");
 				$query = $this->populateQuery();
 				
 			$rows = $this->db
-			->connect()
-			->query($query, false)
+			->query($query)
 			->getRowsAssoc();
 			
-			$this->db->disconnect();
 			
 			$properties = $this->getInstancePropertyNames();
 			
@@ -371,12 +371,9 @@ require_once("DBC.php");
 		// Insert subclassed object into DB
 		public function insert()
 		{
-			$this->db
-			->connect()
-			->query($this->insertQuery(), false);
+			$this->db->query($this->insertQuery());
 			
 			$insertID = $this->db->lastID();
-			$this->db->disconnect();
 			
 			// update key for auto increment key columns
 			if ($insertID != $this->getInstanceData($this->getKeyName())) {
@@ -396,9 +393,7 @@ require_once("DBC.php");
 		public function update()
 		{
 			$this->db
-			->connect()
-			->query($this->updateQuery(), false)
-			->disconnect();
+			->query($this->updateQuery());
 		}
 		
 		public function deleteQuery()
@@ -411,9 +406,7 @@ require_once("DBC.php");
 		public function delete()
 		{	
 			$this->db
-			->connect()
-			->query($this->deleteQuery(), false)
-			->disconnect();
+			->query($this->deleteQuery());
 		}
 		
 		// Checks if the row exists in the DB
@@ -421,8 +414,7 @@ require_once("DBC.php");
 		{
 			return 
 			$this->db
-			->connect()
-			->query($this->populateQuery(), false)
+			->query($this->populateQuery())
 			->getRowCount() > 0;
 		}
 		

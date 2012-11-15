@@ -8,7 +8,7 @@
 require_once("debugging.php");
 
 $db = new DBC(
-	'localhost',
+	'host',
 	'username',
 	'password',
 	'database'
@@ -30,18 +30,25 @@ class DBC
 		$this->pass = $pass;
 		$this->db = $db;
 	}
-	
+		
 	public function connect()
 	{
-		$this->DBC = mysqli_connect($this->host, $this->user, $this->pass, $this->db);
+		// connect only if not yet connected...
+		// maybe look into :p prefix... "pconnect" persistent connection
+		if (!$this->connected())
+			$this->DBC = mysqli_connect($this->host, $this->user, $this->pass, $this->db);
+		
 		return $this;
 	}
 	
-	public function query($query, $clean = true)
+	public function connected()
 	{
-		if ($clean)
-			$query = $this->Escape($query);
-				
+		return isset($this->DBC);
+	}
+	
+	public function query($query)
+	{
+		//echo "query = $query <br>"; // Watch every querry
 		$this->lastResult = mysqli_query($this->DBC, $query);
 		return $this;
 	}
@@ -102,7 +109,9 @@ class DBC
 	
 	public function disconnect()
 	{
+		echo "disconnected";
 		mysqli_close($this->DBC);
+		unset($this->DBC);
 		return $this;
 	}
 	
