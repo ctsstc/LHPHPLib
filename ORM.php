@@ -257,7 +257,8 @@ require_once("DBC.php");
 		{
 			$ret = "";
 			foreach($this->getObjectVars() as $name => $value) {
-					$ret .= "$name='$value', ";
+					if (isset($value))
+						$ret .= "$name='$value', ";
 			}
 			$ret = substr($ret, 0, strlen($ret) - 2); // remove last ", "
 			return $ret;
@@ -316,10 +317,10 @@ require_once("DBC.php");
 			$ret = "";
 			foreach($this->getObjectVars() as $name=>$value)
 			{
-				if (!isset($this->$name))
-					$ret .= "$name = '".$this->$name."', ";
+				if (isset($this->$name) && !empty($this->$name))
+					$ret .= "$name = '".$this->$name."' AND ";
 			}
-			return substr($ret, 0, strlen($ret) - 2); // remove last ", "
+			return substr($ret, 0, strlen($ret) - 5); // remove last " AND "
 		}
 		
 		// Creates a query with the WHERE clause as the currently set properties
@@ -336,7 +337,7 @@ require_once("DBC.php");
 		{
 			$query = "";
 			
-			if ($userProperties)
+			if ($useProperties)
 				$query = $this->queryPropertiesQuery();
 			else
 				$query = $this->populateQuery();
