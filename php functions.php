@@ -30,6 +30,10 @@ function getCurrentExecutingFile()
 // Doesn't count "0" as empty
 function myEmpty($value)
 {
+	// if I need to incorporate more of the values listed here:
+	// 	http://php.net/manual/en/function.empty.php
+	// I could have them in an array and try to serach the array using some kinda
+	// 	of "array contains" function from PHP
 	return (empty($value) && $value != "0");
 }
 ?>
