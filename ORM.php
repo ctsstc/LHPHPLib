@@ -7,6 +7,7 @@
 
 require_once("debugging.php");
 require_once("DBC.php");
+require_once("php functions");
 
 	/* Object Relational Mapping
 		Description: Populates a subclassed object from a database
@@ -317,7 +318,7 @@ require_once("DBC.php");
 			$ret = "";
 			foreach($this->getObjectVars() as $name=>$value)
 			{
-				if (isset($this->$name) && !empty($this->$name))
+				if (isset($this->$name) && !myEmpty($this->$name))
 					$ret .= "$name = '".$this->$name."' AND ";
 			}
 			return substr($ret, 0, strlen($ret) - 5); // remove last " AND "
@@ -345,7 +346,6 @@ require_once("DBC.php");
 			$rows = $this->db
 			->query($query)
 			->getRowsAssoc();
-			
 			
 			$properties = $this->getInstancePropertyNames();
 			
