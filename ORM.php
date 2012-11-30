@@ -7,7 +7,7 @@
 
 require_once("debugging.php");
 require_once("DBC.php");
-require_once("php functions");
+require_once("php functions.php");
 
 	/* Object Relational Mapping
 		Description: Populates a subclassed object from a database
