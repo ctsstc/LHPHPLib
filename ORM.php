@@ -290,30 +290,10 @@ require_once("php functions.php");
 			}
 		}
 		
-		// Checks if customClause is set, otherwise generates clause using keyName = keyValue
-		public function getClause()
-		{
-			if (empty($this->customClause))
-				return $this->getKeyName()."='".$this->getKeyValue()."'";
-			else
-				return $this->customClause;
-		}
-		
-		public function setClause($newClause)
-		{
-			$this->customClause = $newClause;
-		}
-		
-		// Queries from table where keyName = keyValue
-		public function populateQuery()
-		{
-			return "SELECT * ".
-					"FROM ".$this->tableName.
-					" WHERE ".$this->getClause();
-		}
-		
-		// returns the currently set properties in a key = 'value', ... comma separated list
-		private function genQueryProperties()
+		// Generates a clause using the currently set properties
+		// 	Currently only generates using the AND clause
+		//		Could later use an argument to choose between AND/OR/Array(And,OR,...)
+		private function genPropertyClause()
 		{
 			$ret = "";
 			foreach($this->getObjectVars() as $name=>$value)
@@ -324,27 +304,40 @@ require_once("php functions.php");
 			return substr($ret, 0, strlen($ret) - 5); // remove last " AND "
 		}
 		
-		// Creates a query with the WHERE clause as the currently set properties
-		public function queryPropertiesQuery()
+		// Checks if customClause is set, otherwise generates clause using keyName = keyValue
+		// 	If $useProperties is true it will use genPropertyClause()
+		public function getClause($useProperties = false)
+		{
+			if ($useProperties)
+				return $this->genPropertyClause();
+			else
+			{
+				if (empty($this->customClause))
+					return $this->getKeyName()."='".$this->getKeyValue()."'";
+				else
+					return $this->customClause;
+			}
+		}
+		
+		public function setClause($newClause)
+		{
+			$this->customClause = $newClause;
+		}
+		
+		// Queries from table where keyName = keyValue
+		public function populateQuery($useProperties = false)
 		{
 			return "SELECT * ".
 					"FROM ".$this->tableName.
-					" WHERE ".$this->genQueryProperties();
+					" WHERE ".$this->getClause($useProperties);
 		}
 		
 		// Populates subclassed variables from DB using where $this->key = 
 		//	$useProperties = true - uses all the properties in the clause
 		public function populate($useProperties = false)
-		{
-			$query = "";
-			
-			if ($useProperties)
-				$query = $this->queryPropertiesQuery();
-			else
-				$query = $this->populateQuery();
-				
+		{		
 			$rows = $this->db
-			->query($query)
+			->query($this->populateQuery($useProperties))
 			->getRowsAssoc();
 			
 			$properties = $this->getInstancePropertyNames();
@@ -401,25 +394,25 @@ require_once("php functions.php");
 			->query($this->updateQuery());
 		}
 		
-		public function deleteQuery()
+		public function deleteQuery($useProperties = false)
 		{
 			return "DELETE FROM ".$this->tableName." ".
-					"WHERE ".$this->getClause();
+					"WHERE ".$this->getClause($useProperties);
 		}
 		
 		// Removes object from the database
-		public function delete()
+		public function delete($useProperties = false)
 		{	
 			$this->db
-			->query($this->deleteQuery());
+			->query($this->deleteQuery($useProperties));
 		}
 		
 		// Checks if the row exists in the DB
-		public function exists()
+		public function exists($useProperties = false)
 		{
 			return 
 			$this->db
-			->query($this->populateQuery())
+			->query($this->populateQuery($useProperties))
 			->getRowCount() > 0;
 		}
 		
