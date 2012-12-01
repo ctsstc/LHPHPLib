@@ -41,7 +41,7 @@ function myEmpty($value)
 // Generates the current timestamp that mysql will recognize
 function mysqlTimeStamp()
 {
-	return date("Y-m-d h:i:s");
+	return date("Y-m-d H:i:s");
 }
 // alias
 function mysqlDateTime()
