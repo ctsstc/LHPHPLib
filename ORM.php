@@ -400,7 +400,9 @@ require_once("php functions.php");
 			$insertID = $this->db->lastID();
 			
 			// update key for auto increment key columns
-			if ($insertID != $this->getInstanceData($this->getKeyName())) {
+			// if the lastID() is zero then there must not be any uniqueID.
+			// as explained here: http://php.net/manual/en/mysqli.insert-id.php
+			if ($insertID != 0 && $insertID != $this->getInstanceData($this->getKeyName())) {
 				$this->setKeyValue($insertID);
 				$this->setInstanceData($this->getKeyName(), $insertID);
 			}
