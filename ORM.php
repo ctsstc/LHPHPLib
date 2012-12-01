@@ -85,7 +85,7 @@ require_once("php functions.php");
 		//		link on user.id and post.userID would create proper
 		
 		// used to know where the ORM class starts when obtaining the instance's variables
-		private $uniqueUnusedFirstProperty = "uniqueUnusedFirstProperty";
+		private $tableStructureDelimiter = "tableStructureDelimiter"; // something that is unique that won't be in a table
 		private $className;
 		private $db;
 		private $collection;
@@ -93,6 +93,9 @@ require_once("php functions.php");
 		private $keyName;
 		private $keyValue;
 		private $customClause;
+		private $sqlConstants = array( // values that shouldn't be encased in single quotes for querries
+			"CURRENT_TIMESTAMP"
+		);
 		
 		public $tableName;
 		public $autoClean;
@@ -141,7 +144,7 @@ require_once("php functions.php");
 			foreach(get_object_vars($this) as $k => $v)
 			{
 				// break on ORM class first public var
-				if ($k == $this->uniqueUnusedFirstProperty)
+				if ($k == $this->tableStructureDelimiter)
 					break;
 				
 				if ($this->autoClean)
@@ -244,7 +247,10 @@ require_once("php functions.php");
 			{
 				$ret = "";
 				foreach ($this->getObjectVars() as $name => $value) {
-					$ret .= "'$value', ";
+					if ( in_array($value, $this->sqlConstants) )
+						$ret .= "$value, ";
+					else
+						$ret .= "'$value', ";
 				}
 				return substr($ret, 0, strlen($ret) - 2); // remove last ", "
 			}
@@ -259,7 +265,12 @@ require_once("php functions.php");
 			$ret = "";
 			foreach($this->getObjectVars() as $name => $value) {
 					if (isset($value))
-						$ret .= "$name='$value', ";
+					{
+						if ( in_array($value, $this->sqlConstants) )
+							$ret .= "$name=$value, ";
+						else
+							$ret .= "$name='$value', ";
+					}
 			}
 			$ret = substr($ret, 0, strlen($ret) - 2); // remove last ", "
 			return $ret;
@@ -272,6 +283,9 @@ require_once("php functions.php");
 		
 		private function getInstanceData($property, $clean = true)
 		{
+			if (!isset($this->$property))
+				return;
+			
 			// not sure of the overhead on the escaping with 
 			if ($this->autoClean)
 			{
@@ -298,8 +312,15 @@ require_once("php functions.php");
 			$ret = "";
 			foreach($this->getObjectVars() as $name=>$value)
 			{
-				if (isset($this->$name) && !myEmpty($this->$name))
-					$ret .= "$name = '".$this->$name."' AND ";
+				$val = $this->getInstanceData($name);
+				
+				if (!myEmpty($this->$name))
+				{
+					if ( in_array($val, $this->sqlConstants) )
+						$ret .= "$name = $val AND ";
+					else
+						$ret .= "$name = '$val' AND ";
+				}
 			}
 			return substr($ret, 0, strlen($ret) - 5); // remove last " AND "
 		}
@@ -313,7 +334,12 @@ require_once("php functions.php");
 			else
 			{
 				if (empty($this->customClause))
-					return $this->getKeyName()."='".$this->getKeyValue()."'";
+				{
+					if ( in_array($this->getKeyValue(), $this->sqlConstants) ) // Don't think this will ever happen...
+						return $this->getKeyName()."=".$this->getKeyValue();
+					else
+						return $this->getKeyName()."='".$this->getKeyValue()."'";
+				}
 				else
 					return $this->customClause;
 			}

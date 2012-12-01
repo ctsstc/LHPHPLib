@@ -36,4 +36,16 @@ function myEmpty($value)
 	// 	of "array contains" function from PHP
 	return (empty($value) && $value != "0");
 }
+
+// Cody Swartz
+// Generates the current timestamp that mysql will recognize
+function mysqlTimeStamp()
+{
+	return date("Y-m-d h:i:s");
+}
+// alias
+function mysqlDateTime()
+{
+	return mysqlTimeStamp();
+}
 ?>
