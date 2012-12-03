@@ -31,6 +31,11 @@ class DBC
 		$this->db = $db;
 	}
 	
+	public function __destruct() {
+		// may cause issues if other parts of the script were trying to use the global DBC.
+		$this->disconnect();
+	}
+	
 	// Chainable
 	public function connect()
 	{
@@ -117,9 +122,13 @@ class DBC
 	// Chainable
 	public function disconnect()
 	{
-		echo "disconnected";
-		$this->DBC->close();
-		unset($this->DBC);
+		if ($this->connected())
+		{
+			//echo "disconnected";
+			//debug($this->DBC);
+			$this->DBC->close();
+			unset($this->DBC);
+		}
 		return $this;
 	}
 	

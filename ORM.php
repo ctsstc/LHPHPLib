@@ -127,12 +127,7 @@ require_once("php functions.php");
 			if(!empty($keyValue))
 				$this->setKeyValue($keyValue);
 		}
-		
-		public function __destruct() {
-			// may cause issues if other parts of the script were trying to use the global DBC.
-			$this->db->disconnect();
-		}
-		
+				
 		private function isExtended()
 		{
 			return ($this->className != "ORM");
