@@ -43,9 +43,9 @@ class DBC
 		// maybe look into :p prefix... "pconnect" persistent connection
 		if (!$this->connected())
 		{
-			$this->DBC = new mysqli($this->host, $this->user, $this->pass, $this->db);
-			if ($this->DBC->connect_errno)
-				echo "Failed to connect to MySQL: " . $this->DBC->connect_error();
+			$this->DBC = @new mysqli($this->host, $this->user, $this->pass, $this->db);
+			if ($this->DBC->connect_error)
+				echo "Failed to connect to MySQL: " . $this->DBC->connect_error;
 		}
 		
 		return $this;
