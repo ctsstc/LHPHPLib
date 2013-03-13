@@ -2,12 +2,17 @@ LHPHPLib
 ========
 
 Logic Happens PHP Library / Framework
-
 http://logichappens.com/
 
-Currently a work in progress, as well as my frist Git and GitHub project.
+Example Code and Use
+-------------------------
+http://logichappens.com/ORM%20Example/
 
 Classes
 -------------------------
 - DBC - Database connection
-- ORM - Object Relational Mapping, easily create a class that extends ORM to symeterically bind it to a database.
+- ORM - Object Relational Mapping, easily create a class that extends ORM to symeterically bind it to a database
+
+Sites Using LHPHPLib
+-------------------------
+http://corkyapp.com/
