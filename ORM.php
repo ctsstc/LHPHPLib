@@ -106,7 +106,7 @@ require_once("php functions.php");
 			$this->db = &$db;
 			$this->db->connect(); // make sure we're connected
 			$this->autoClean = true;
-			$this->className = get_class($this);	
+			$this->className = get_class($this);
 			$this->collection = array();
 			$this->index = 0;
 			$this->setClause("");
@@ -118,7 +118,7 @@ require_once("php functions.php");
 				$this->tableName = $tableName;
 			else
 				$this->tableName = $this->genTableName();
-			
+						
 			if(!empty($keyName))
 				$this->setKeyName($keyName);
 			else
@@ -361,7 +361,7 @@ require_once("php functions.php");
 		// Populates subclassed variables from DB using where $this->key = 
 		//	$useProperties = true - uses all the properties in the clause
 		public function populate($useProperties = false)
-		{		
+		{	
 			$rows = $this->db
 			->query($this->populateQuery($useProperties))
 			->getRowsAssoc();
@@ -442,6 +442,46 @@ require_once("php functions.php");
 			$this->db
 			->query($this->populateQuery($useProperties))
 			->getRowCount() > 0;
+		}
+		
+		public static function GenerateClasses()
+		{
+			global $db; // from dbc.php
+			$tables = $db->connect()->query("SHOW TABLES")->getRows();
+						
+			$fileName = 'classes.php';
+			$fileHandle = fopen($fileName, 'w') or die('Cannot open file:  '.$fileName);
+			
+			fwrite($fileHandle, "<?\n");
+			fwrite($fileHandle, "\t".'include_once("ORM/ORM.php");'."\n\n");
+			
+			foreach($tables as $tableName)
+			{
+				$tableName = $tableName[0];
+				//debug($tableName);
+				
+				// start of table
+				fwrite($fileHandle, "\tclass $tableName extends ORM \n\t{\n");
+				
+				$structure = $db->query("DESCRIBE $tableName")->getRowsAssoc();
+				//debug($structure);
+
+				foreach($structure as $key=>$value)
+				{
+					// write public properties
+					fwrite($fileHandle, "\t\tpublic $".$value['Field'].";\n");
+				}
+				
+				// write the default constructor
+				fwrite($fileHandle, "\n\t\tpublic function __construct() \n\t\t{ \n\t\t\tparent::__construct('$tableName'); \n\t\t}\n");
+				
+				// end of table
+				fwrite($fileHandle, "\t}\n\n");
+			}
+			
+			fwrite($fileHandle, "\n?>");
+			
+			fclose($fileHandle);
 		}
 		
 		// <Iterator> 
