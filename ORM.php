@@ -86,8 +86,8 @@ require_once("php functions.php");
 		
 		// used to know where the ORM class starts when obtaining the instance's variables
 		private $tableStructureDelimiter = "tableStructureDelimiter"; // something that is unique that won't be in a table
+		public $db;
 		private $className;
-		private $db;
 		private $collection;
 		private $index;
 		private $keyName;
@@ -99,7 +99,7 @@ require_once("php functions.php");
 		
 		public $tableName;
 		public $autoClean;
-		
+				
 		public function __construct($tableName = "", $keyValue = "", $keyName = "") 
 		{	
 			global $db; // from dbc.php
@@ -330,7 +330,12 @@ require_once("php functions.php");
 		public function getClause($useProperties = false)
 		{
 			if ($useProperties)
-				return $this->genPropertyClause();
+			{
+				if (empty($this->customClause))
+					return $this->genPropertyClause();
+				else
+					return $this->genPropertyClause().' '.$this->customClause;
+			}
 			else
 			{
 				if (empty($this->customClause))
@@ -520,6 +525,32 @@ require_once("php functions.php");
 		public function getIndex($index)
 		{
 			return $this->collection[$index]; 
+		}
+		
+		private function getCollectionDataOnly()
+		{
+			$collection = array();
+			$properties = $this->getInstancePropertyNames();
+			
+			foreach($this->collection as $value)
+			{
+				$item = array();
+				// set current instance data to first 
+				foreach ($properties as $property) {
+					$item[$property] = $value->$property;
+				}
+				$collection[] = $item;
+			}
+			
+			return $collection;
+		}
+		
+		public function getCollection($raw = false)
+		{
+			if ($raw)
+				return $this->collection;
+			else
+				return $this->getCollectionDataOnly();
 		}
 		
 		public function rowCount()
