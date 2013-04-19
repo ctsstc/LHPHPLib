@@ -16,6 +16,8 @@ $db = new DBC(
 
 class DBC
 {	
+	public $debug = false;
+	
 	private $host;
 	private $user;
 	private $pass;
@@ -59,7 +61,9 @@ class DBC
 	// Chainable
 	public function query($query)
 	{
-		//echo "query = $query <br>"; // Watch every querry
+		if ($this->debug)
+			echo "query = $query <br>"; // Watch every querry
+		
 		$this->lastResult = $this->DBC->query($query);
 		return $this;
 	}
